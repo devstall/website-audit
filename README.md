@@ -25,12 +25,18 @@ Browser: Playwright uses its bundled Chromium if installed (`npx playwright inst
 | Env var | Default | Purpose |
 |---|---|---|
 | `PORT` | `4173` | HTTP port |
-| `HOST` | `127.0.0.1` | Bind address (use `0.0.0.0` only behind an access-controlled proxy) |
-| `WII_DATA_DIR` | `data` | SQLite database + screenshots |
+| `WII_PASSWORD` | (none) | Dashboard login password (10+ characters). **Required on any public server**: without it the app only listens on loopback |
+| `WII_USER` | `admin` | Dashboard login user name |
+| `HOST` | `127.0.0.1`, or `0.0.0.0` when `WII_PASSWORD` is set | Bind address. The app refuses to listen on a non-loopback address without a password |
+| `WII_DATA_DIR` | `data` | SQLite database + screenshots (relative paths resolve against the project folder) |
 | `WII_CONCURRENCY` | `2` | Parallel investigations (each runs a browser); also the max parallel re-checks |
 | `WII_API_KEY` | (none) | When set, every `/api` call needs `X-WII-Key` (required when a WordPress site reaches the engine over a network) |
 
-Requires Node ≥ 22.5 for the built-in `node:sqlite` (the npm scripts pass `--experimental-sqlite` for 22.5–22.12). If `node:sqlite` is unavailable, storage falls back to one JSON file per investigation.
+Settings can also go in a `.env` file next to `server.js` (see `.env.example`). Shared client report links (`/r/…`) stay public; everything else requires the login when `WII_PASSWORD` is set. The WordPress plugin can call `/api` with `X-WII-Key` instead.
+
+**Deploying** (Hostinger, VPS): see [DEPLOY.md](DEPLOY.md).
+
+Requires Node ≥ 22.13 for the built-in `node:sqlite`. If `node:sqlite` is unavailable, storage falls back to one JSON file per investigation.
 
 ## Fix Assistant, re-check and client report
 

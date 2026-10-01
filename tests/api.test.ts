@@ -10,9 +10,9 @@ afterEach(() => {
   while (closers.length) closers.pop()!();
 });
 
-async function boot(apiKey = '') {
+async function boot(apiKey = '', login: { user?: string; password?: string } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wii-api-'));
-  const { app, store } = await createApp(dir, { apiKey });
+  const { app, store } = await createApp(dir, { apiKey, password: '', ...login });
   const server = app.listen(0, '127.0.0.1');
   await new Promise((r) => server.once('listening', r));
   closers.push(() => server.close());
@@ -162,6 +162,32 @@ describe('fix / status API', () => {
     expect((await fetch(`${base}/api/investigations`)).status).toBe(401);
     expect((await fetch(`${base}/api/investigations`, { headers: { 'x-wii-key': 'wrong' } })).status).toBe(401);
     expect((await fetch(`${base}/api/investigations`, { headers: { 'x-wii-key': 's3cret-key' } })).status).toBe(200);
+    expect((await fetch(`${base}/api/investigations`, { headers: { authorization: 'Bearer s3cret-key' } })).status).toBe(200);
+    expect((await fetch(`${base}/api/investigations`, { headers: { authorization: 'Bearer wrong' } })).status).toBe(401);
+  });
+
+  it('requires the dashboard login when a password is configured', async () => {
+    const { base, store } = await boot('api-k3y', { user: 'owner', password: 'correct horse battery' });
+    const basic = (u: string, p: string) => ({ authorization: `Basic ${Buffer.from(`${u}:${p}`).toString('base64')}` });
+
+    const page = await fetch(`${base}/`);
+    expect(page.status).toBe(401);
+    expect(page.headers.get('www-authenticate')).toMatch(/^Basic /);
+    expect((await fetch(`${base}/api/investigations`)).status).toBe(401);
+    expect((await fetch(`${base}/api/investigations`, { headers: basic('owner', 'wrong') })).status).toBe(401);
+    expect((await fetch(`${base}/api/investigations`, { headers: basic('other', 'correct horse battery') })).status).toBe(401);
+
+    expect((await fetch(`${base}/`, { headers: basic('owner', 'correct horse battery') })).status).toBe(200);
+    // The dashboard does not send the API key; the login alone is enough.
+    expect((await fetch(`${base}/api/investigations`, { headers: basic('owner', 'correct horse battery') })).status).toBe(200);
+    // The WordPress plugin authenticates with the API key only.
+    expect((await fetch(`${base}/api/investigations`, { headers: { 'x-wii-key': 'api-k3y' } })).status).toBe(200);
+
+    // Shared client reports stay public.
+    const id = '66666666-6666-4666-8666-666666666666';
+    store.insert(completeRecord(id));
+    const share = await (await fetch(`${base}/api/investigations/${id}/share`, { method: 'POST', headers: basic('owner', 'correct horse battery') })).json();
+    expect((await fetch(`${base}${share.path}`)).status).toBe(200);
   });
 });
 

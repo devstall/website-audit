@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { renderPdf } from './browser/browser.js';
-import { API_KEY, DATA_DIR, QUEUE_CONCURRENCY, SERVER_HOST, SERVER_PORT } from './config.js';
+import { API_KEY, AUTH_PASSWORD, AUTH_USER, DATA_DIR, MIN_PASSWORD_LENGTH, QUEUE_CONCURRENCY, SERVER_HOST, SERVER_PORT } from './config.js';
 import { normalizeInputUrl } from './crawl/url.js';
 import { brandingComplete, loadBranding, sanitizeBranding, saveBranding } from './branding.js';
 import { LEAD_STATUSES, openStore, type InvestigationRecord, type JobStatus, type LeadStatus, type ListItem } from './db.js';
@@ -40,16 +40,63 @@ function rateLimiter(max: number, windowMs: number) {
   };
 }
 
+/** Constant-time string comparison (hashing first makes the lengths equal). */
+function safeEqual(a: string, b: string): boolean {
+  const ha = crypto.createHash('sha256').update(a).digest();
+  const hb = crypto.createHash('sha256').update(b).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
+function apiKeyFrom(req: Request): string {
+  const header = req.headers['x-wii-key'];
+  if (typeof header === 'string' && header) return header;
+  const auth = req.headers.authorization ?? '';
+  return /^Bearer\s+/i.test(auth) ? auth.replace(/^Bearer\s+/i, '') : '';
+}
+
+/**
+ * Dashboard login (HTTP Basic auth). The browser asks once and then sends the credentials with every
+ * page and API call, so the UI needs no changes. A valid API key is also accepted on /api so the
+ * WordPress plugin keeps working.
+ */
+function loginGuard(user: string, password: string, apiKey: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    // Share links are the reports you send to clients: they stay public (each one is an unguessable, revocable token).
+    if (req.method === 'GET' && req.path.startsWith('/r/')) return next();
+    if (apiKey && req.path.startsWith('/api/')) {
+      const key = apiKeyFrom(req);
+      if (key && safeEqual(key, apiKey)) {
+        res.locals.authenticated = true;
+        return next();
+      }
+    }
+    const match = /^Basic\s+(.+)$/i.exec(req.headers.authorization ?? '');
+    if (match) {
+      const decoded = Buffer.from(match[1]!, 'base64').toString('utf8');
+      const sep = decoded.indexOf(':');
+      // Evaluate both comparisons so timing does not reveal which one failed.
+      const userOk = sep >= 0 && safeEqual(decoded.slice(0, sep), user);
+      const passOk = sep >= 0 && safeEqual(decoded.slice(sep + 1), password);
+      if (userOk && passOk) {
+        res.locals.authenticated = true;
+        return next();
+      }
+    }
+    res.setHeader('WWW-Authenticate', 'Basic realm="Website Investigator", charset="UTF-8"');
+    if (req.path.startsWith('/api/')) res.status(401).json({ error: 'Login required' });
+    else res.status(401).type('text/plain').send('Login required');
+  };
+}
+
 /**
  * Optional shared-secret auth for the API (used by the WordPress plugin when the engine is not on loopback).
- * The browser UI works without a key only when no key is configured.
+ * Requests already signed in through the dashboard login pass; otherwise the key is required.
  */
 function apiKeyGuard(key: string) {
-  const expected = crypto.createHash('sha256').update(key).digest();
   return (req: Request, res: Response, next: NextFunction) => {
-    const given = String(req.headers['x-wii-key'] ?? (req.headers.authorization ?? '').replace(/^Bearers+/i, ''));
-    const actual = crypto.createHash('sha256').update(given).digest();
-    if (!given || !crypto.timingSafeEqual(expected, actual)) {
+    if (res.locals.authenticated) return next();
+    const given = apiKeyFrom(req);
+    if (!given || !safeEqual(given, key)) {
       res.status(401).json({ error: 'Missing or invalid API key' });
       return;
     }
@@ -57,8 +104,10 @@ function apiKeyGuard(key: string) {
   };
 }
 
-export async function createApp(dataDir = DATA_DIR, opts: { apiKey?: string } = {}) {
+export async function createApp(dataDir = DATA_DIR, opts: { apiKey?: string; user?: string; password?: string } = {}) {
   const apiKey = opts.apiKey ?? API_KEY;
+  const password = opts.password ?? AUTH_PASSWORD;
+  const user = opts.user ?? AUTH_USER;
   const store = await openStore(dataDir);
   const interrupted = store.failInterrupted();
   if (interrupted) console.warn(`[store] marked ${interrupted} interrupted investigation(s) as failed`);
@@ -72,12 +121,15 @@ export async function createApp(dataDir = DATA_DIR, opts: { apiKey?: string } = 
 
   const app = express();
   app.disable('x-powered-by');
+  // Hosting proxies on the same machine forward the real client IP (used by the rate limiter).
+  app.set('trust proxy', 'loopback');
   app.use((_req, res, next) => {
     res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     next();
   });
+  if (password) app.use(loginGuard(user, password, apiKey));
   // Settings carry an uploaded logo; everything else is tiny.
   const smallJson = express.json({ limit: '16kb' });
   const settingsJson = express.json({ limit: '700kb' });
@@ -531,10 +583,29 @@ export async function createApp(dataDir = DATA_DIR, opts: { apiKey?: string } = 
   return { app, store, queue };
 }
 
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (isMain) {
+const LOOPBACK = new Set(['127.0.0.1', '::1', 'localhost']);
+
+/** Starts the HTTP server. Refuses to expose the dashboard on a network without a login. */
+export async function startServer() {
+  if (AUTH_PASSWORD && AUTH_PASSWORD.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`WII_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+  }
+  if (!AUTH_PASSWORD && !LOOPBACK.has(SERVER_HOST)) {
+    throw new Error(`Refusing to listen on ${SERVER_HOST} without a login. Set WII_PASSWORD (and optionally WII_USER).`);
+  }
+  if (!AUTH_PASSWORD && process.env.NODE_ENV === 'production') {
+    console.warn('[security] NODE_ENV=production but WII_PASSWORD is not set: anyone who can reach this server can use the dashboard.');
+  }
   const { app, store } = await createApp();
-  app.listen(SERVER_PORT, SERVER_HOST, () => {
-    console.log(`Website Independent Investigator running at http://${SERVER_HOST === '0.0.0.0' ? 'localhost' : SERVER_HOST}:${SERVER_PORT} (storage: ${store.kind})`);
+  const server = app.listen(SERVER_PORT, SERVER_HOST, () => {
+    const shown = SERVER_HOST === '0.0.0.0' ? 'localhost' : SERVER_HOST;
+    console.log(`Website Independent Investigator running at http://${shown}:${SERVER_PORT} (storage: ${store.kind}, data: ${DATA_DIR}, login: ${AUTH_PASSWORD ? 'on' : 'off'})`);
   });
+  const shutdown = () => server.close(() => process.exit(0));
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
+  return server;
 }
+
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) await startServer();
