@@ -1,0 +1,38 @@
+{
+  "name": "website-independent-investigator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Investigates a public website from its URL only and reports ONE verified, evidence-backed technical issue.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "dev": "node --experimental-sqlite --disable-warning=ExperimentalWarning --import tsx --watch src/server.ts",
+    "start": "node --experimental-sqlite --disable-warning=ExperimentalWarning --import tsx src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:browser": "vitest run tests/browser.test.ts",
+    "investigate": "node --experimental-sqlite --disable-warning=ExperimentalWarning --import tsx src/cli.ts",
+    "start:prod": "node --experimental-sqlite --disable-warning=ExperimentalWarning dist/server.js",
+    "build:wp": "node --import tsx scripts/build-wp-assets.ts"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "express": "^5.2.1",
+    "playwright": "^1.63.0",
+    "undici": "^7.30.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.3",
+    "eslint": "^9.39.5",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.2"
+  }
+}

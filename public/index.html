@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Site Auditor — Dashboard</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/report.css">
+  <link rel="stylesheet" href="/fix.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="side-brand" id="side-brand"><span class="mark" aria-hidden="true"></span><span id="brand-name">Site Auditor</span></div>
+    <nav class="nav" aria-label="Main">
+      <a href="#/dashboard" data-nav="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h8V3H3zm10 8h8V11h-8zM3 21h8v-6H3zm10-18v6h8V3z"/></svg>Dashboard</a>
+      <a href="#/new" data-nav="new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg>New audit</a>
+      <a href="#/reports" data-nav="reports"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm-1 7V3.5L18.5 9zM8 13h8v2H8zm0 4h8v2H8z"/></svg>Reports</a>
+      <a href="#/settings" data-nav="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.3 7.3 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.3 7.3 0 0 0-1.7 1l-2.5-1-2 3.5L6.5 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.3 7.3 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.3 7.3 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>Branding &amp; settings</a>
+    </nav>
+    <div class="side-foot">
+      <div class="engine"><span class="dot" id="engine-dot"></span><span id="engine-text">Engine ready</span></div>
+      <p>Read-only audits · public URL only</p>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Open menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+      <div>
+        <p class="crumb" id="crumb">Workspace</p>
+        <h1 id="page-title">Dashboard</h1>
+      </div>
+      <div class="top-actions">
+        <a class="btn" href="#/new" id="top-new">+ New audit</a>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- ============ DASHBOARD ============ -->
+      <section data-view="dashboard" hidden>
+        <div class="banner" id="setup-banner" hidden>
+          <div><strong>Make every report sell for you.</strong> Add your agency name, logo and contact details — they appear on every client report with a “hire us” call to action.</div>
+          <a class="btn small" href="#/settings">Set up branding</a>
+        </div>
+        <div class="kpis" id="kpis"></div>
+        <div class="card pipeline-card">
+          <div class="card-head"><h2>Sales pipeline</h2><span class="muted" id="share-stat"></span></div>
+          <div class="pipeline" id="pipeline"></div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h2>Audit activity</h2><span class="muted">Last 14 days</span></div>
+            <div class="bars" id="activity"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>Issues found</h2><span class="muted">Active reports</span></div>
+            <div class="sevbar" id="sevbar"></div>
+            <ul class="legend" id="sev-legend"></ul>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h2>Hottest leads</h2><span class="muted">Lowest health scores</span></div>
+            <ul class="leads" id="leads"></ul>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>Most common issues</h2><span class="muted">Your talking points</span></div>
+            <ul class="common" id="common"></ul>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Recent reports</h2><a href="#/reports" class="link">View all →</a></div>
+          <div class="table-wrap"><table class="table" id="recent-table"></table></div>
+        </div>
+      </section>
+
+      <!-- ============ NEW AUDIT ============ -->
+      <section data-view="new" hidden>
+        <div class="card hero-card" id="start">
+          <div class="hero-copy">
+            <h2>Audit any website in 1–3 minutes</h2>
+            <p>Enter a prospect’s URL. You get verified issues with evidence and screenshots, plus a branded client report that shows the problems — and positions you to fix them.</p>
+          </div>
+          <form id="form" novalidate>
+            <div class="seg mode-seg" role="tablist" aria-label="Audit mode">
+              <button type="button" class="on" data-mode="single">Single website</button>
+              <button type="button" data-mode="bulk">Bulk prospecting (up to 20)</button>
+            </div>
+            <div class="form-grid" id="single-fields">
+              <label>Website URL<input id="url" name="url" type="url" inputmode="url" autocomplete="url" spellcheck="false" placeholder="https://prospect-website.com"></label>
+              <label><span>Client / company name <span class="opt">(optional)</span></span><input id="client" name="client" type="text" maxlength="80" placeholder="Acme Plumbing Ltd"></label>
+            </div>
+            <label id="bulk-fields" hidden>Websites — one per line<textarea id="bulk-urls" rows="6" spellcheck="false" placeholder="https://first-prospect.com&#10;second-prospect.co.uk&#10;https://third-prospect.com"></textarea></label>
+            <fieldset class="scan-type">
+              <legend>Scan type</legend>
+              <label class="radio"><input type="radio" name="focus" value="full" checked><span><b>Full audit</b><small>SEO, speed, mobile, broken links + security &amp; malware</small></span></label>
+              <label class="radio"><input type="radio" name="focus" value="security"><span><b>Security &amp; malware scan</b><small>Malware, blacklist, SSL, email spoofing, outdated software — faster, no browser</small></span></label>
+              <label class="radio"><input type="radio" name="focus" value="ecommerce"><span><b>E-commerce growth audit</b><small>What will increase sales: product pages, trust, checkout, 5-screen responsive test + visual design concepts</small></span></label>
+            </fieldset>
+            <div class="form-actions">
+              <button type="submit" id="submit">Start audit</button>
+              <span class="hint">No login, plugin or hosting access needed · up to 20 pages · respects robots.txt</span>
+            </div>
+            <p class="error" id="error" role="alert" hidden></p>
+            <ul class="bulk-result" id="bulk-result" hidden></ul>
+          </form>
+        </div>
+        <div class="card" id="progress" hidden aria-live="polite">
+          <div class="progress-head">
+            <div><p class="eyebrow">Audit in progress</p><h2 id="progress-title">Discovering website</h2></div>
+            <span class="pct" id="pct">0%</span>
+          </div>
+          <div class="progressbar"><i id="progress-fill"></i></div>
+          <ol class="steps" id="steps"></ol>
+        </div>
+      </section>
+
+      <!-- ============ REPORTS ============ -->
+      <section data-view="reports" hidden>
+        <div class="card">
+          <div class="toolbar">
+            <div class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z"/></svg><input id="q" type="search" placeholder="Search website or client…" aria-label="Search reports"></div>
+            <div class="seg" role="tablist" id="view-tabs">
+              <button type="button" data-view-tab="active" class="on">Active</button>
+              <button type="button" data-view-tab="archived">Archived</button>
+              <button type="button" data-view-tab="all">All</button>
+            </div>
+            <select id="status-filter" aria-label="Filter by status">
+              <option value="">All statuses</option>
+              <option value="complete">Complete</option>
+              <option value="running">Running</option>
+              <option value="queued">Queued</option>
+              <option value="failed">Failed</option>
+            </select>
+            <select id="lead-filter" aria-label="Filter by lead stage">
+              <option value="">All lead stages</option>
+              <option>New</option><option>Contacted</option><option>Proposal sent</option><option>Won</option><option>Lost</option>
+            </select>
+            <a class="btn ghost" id="export-csv" href="/api/export.csv" download>Export CSV</a>
+          </div>
+          <div class="bulkbar" id="bulkbar" hidden>
+            <span id="bulk-count">0 selected</span>
+            <button type="button" class="btn ghost small" data-bulk="archive">Archive</button>
+            <button type="button" class="btn ghost small" data-bulk="unarchive">Restore</button>
+            <button type="button" class="btn danger small" data-bulk="delete">Delete</button>
+            <button type="button" class="btn ghost small" id="bulk-clear">Clear</button>
+          </div>
+          <div class="table-wrap"><table class="table" id="reports-table"></table></div>
+          <div class="empty" id="reports-empty" hidden>
+            <p><strong>No reports here yet.</strong></p>
+            <p class="muted">Run your first audit to start building your pipeline.</p>
+            <a class="btn" href="#/new">Start an audit</a>
+          </div>
+          <div class="pager" id="pager">
+            <span id="pager-info"></span>
+            <div class="pager-nav" id="pager-nav"></div>
+            <label class="pagesize">Rows <select id="page-size"><option>10</option><option selected>20</option><option>50</option></select></label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SINGLE REPORT ============ -->
+      <section data-view="report" hidden>
+        <div class="card report-hero" id="report-hero">
+          <div class="rh-main">
+            <div class="rh-score" id="rh-score"></div>
+            <div class="rh-info">
+              <p class="eyebrow">Website audit</p>
+              <h2 id="rh-host"></h2>
+              <div class="rh-client">
+                <label for="rh-client-input">Prepared for</label>
+                <input id="rh-client-input" type="text" maxlength="80" placeholder="Client name">
+                <button class="btn ghost small" type="button" id="rh-client-save">Save</button>
+              </div>
+              <div class="chips" id="rh-chips"></div>
+            </div>
+          </div>
+          <div class="rh-actions">
+            <a class="btn" id="dl-pdf" href="#">Download client PDF</a>
+            <a class="btn ghost" id="dl-html" href="#">Client HTML</a>
+            <a class="btn ghost" id="preview-client" href="#" target="_blank" rel="noopener">Preview client report ↗</a>
+            <div class="more">
+              <a class="btn ghost small" id="dl-analyst" href="#">Analyst report (with fixes)</a>
+              <button class="btn ghost small" type="button" id="rh-archive">Archive</button>
+              <button class="btn danger small" type="button" id="rh-delete">Delete</button>
+            </div>
+          </div>
+          <p class="note-inline">The client report shows problems, evidence and business impact only — fix instructions stay private to you.</p>
+        </div>
+
+        <div class="card cro-card" id="cro-card" hidden>
+          <div class="card-head"><h2>Sales &amp; conversion</h2><span class="muted" id="cro-sub"></span></div>
+          <div class="cro-top"><div id="cro-ring"></div><div><p class="cro-line" id="cro-line"></p><p class="hint">Recommendations and example design concepts are in the client report (Client report preview tab / PDF). Implementation steps are in the analyst report.</p></div></div>
+          <ul class="cro-list" id="cro-list"></ul>
+        </div>
+
+        <div class="grid-2 report-side">
+          <div class="card" id="sec-card">
+            <div class="card-head"><h2>Security &amp; malware scan</h2><span class="muted" id="sec-sub"></span></div>
+            <div class="verdict" id="sec-verdict"></div>
+            <ul class="sec-list" id="sec-rows"></ul>
+          </div>
+          <div class="card" id="sales-card">
+            <div class="card-head"><h2>Sales</h2><span class="muted">Private — never on client reports</span></div>
+            <div class="sales-row">
+              <label>Lead stage<select id="lead-status"><option>New</option><option>Contacted</option><option>Proposal sent</option><option>Won</option><option>Lost</option></select></label>
+              <div class="share-box">
+                <span class="lbl">Client link</span>
+                <div id="share-state"></div>
+              </div>
+            </div>
+            <label>Notes<textarea id="lead-notes" rows="3" maxlength="4000" placeholder="Called on Monday, interested in a monthly maintenance plan…"></textarea></label>
+            <div class="form-actions">
+              <button type="button" class="btn ghost small" id="save-notes">Save notes</button>
+              <button type="button" class="small" id="btn-outreach">✉ Write outreach email</button>
+            </div>
+            <div class="history" id="history" hidden>
+              <span class="lbl">Audit history for this website</span>
+              <ol id="history-list"></ol>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab on" data-tab="analyst">Findings &amp; fixes (private)</button>
+          <button type="button" class="tab" data-tab="client">Client report preview</button>
+        </div>
+
+        <div data-tabpanel="analyst">
+          <section class="card fixbar" id="fixbar" hidden>
+            <div class="fixbar-head">
+              <div>
+                <p class="eyebrow">Primary issue</p>
+                <p class="fix-title" id="fix-title"></p>
+              </div>
+              <span class="status-pill" id="report-status"></span>
+            </div>
+            <div class="actions">
+              <button type="button" id="btn-fix">Fix This Issue</button>
+              <button type="button" class="btn ghost" id="btn-recheck">Re-check This Issue</button>
+              <button type="button" class="btn ghost" id="btn-progress">Mark In Progress</button>
+            </div>
+            <p class="hint">Read-only: the investigator never changes the website. An issue is only marked Resolved after a fresh re-check confirms it.</p>
+            <p class="error" id="fix-error" role="alert" hidden></p>
+          </section>
+          <section class="card" id="fix-panel" hidden>
+            <div class="actions panel-actions">
+              <button type="button" class="btn ghost" id="btn-view">View Fix Instructions</button>
+              <button type="button" class="btn ghost" id="btn-copy">Copy Fix</button>
+              <button type="button" class="btn ghost" id="btn-recheck-2">Re-check This Issue</button>
+            </div>
+            <div id="fix-body"></div>
+          </section>
+          <section class="card" id="tracking" hidden aria-live="polite"></section>
+          <article class="card report" id="report"></article>
+        </div>
+        <div data-tabpanel="client" hidden>
+          <div class="card frame-card"><iframe id="client-frame" title="Client report preview"></iframe></div>
+        </div>
+      </section>
+
+      <!-- ============ SETTINGS ============ -->
+      <section data-view="settings" hidden>
+        <div class="grid-settings">
+          <form class="card" id="settings-form" novalidate>
+            <div class="card-head"><h2>Agency branding</h2><span class="muted">Printed on every client report</span></div>
+            <div class="logo-row">
+              <div class="logo-box" id="logo-box"><span>Logo</span></div>
+              <div>
+                <label class="btn ghost small file-btn">Upload logo<input type="file" id="logo-input" accept="image/png,image/jpeg,image/webp"></label>
+                <button type="button" class="btn ghost small" id="logo-remove">Remove</button>
+                <p class="hint">PNG, JPEG or WebP, under 400 KB. Wide logos look best.</p>
+              </div>
+            </div>
+            <div class="form-grid">
+              <label>Agency / business name<input name="agencyName" required maxlength="80"></label>
+              <label><span>Your name <span class="opt">(optional)</span></span><input name="consultantName" maxlength="80"></label>
+              <label class="span-2">Tagline<input name="tagline" maxlength="120"></label>
+              <label>Email<input name="email" type="email" maxlength="120"></label>
+              <label>Phone / WhatsApp<input name="phone" maxlength="40"></label>
+              <label>Website<input name="website" maxlength="200" placeholder="https://youragency.com"></label>
+              <label><span>Booking link <span class="opt">(Calendly etc.)</span></span><input name="bookingUrl" maxlength="300" placeholder="https://calendly.com/you/15min"></label>
+            </div>
+            <h3 class="sub-head">Call to action</h3>
+            <div class="form-grid">
+              <label class="span-2">Headline<input name="ctaHeadline" maxlength="120"></label>
+              <label class="span-2">Message<textarea name="ctaMessage" rows="3" maxlength="600"></textarea></label>
+              <label>Offer / button text<input name="offer" maxlength="120"></label>
+              <label>Accent colour<input name="accent" type="color"></label>
+              <label class="check span-2"><input type="checkbox" name="showScore"> Show health score &amp; grade on client reports</label>
+            </div>
+            <h3 class="sub-head">Integrations</h3>
+            <div class="form-grid">
+              <label class="span-2"><span>Google Safe Browsing API key <span class="opt">(optional — enables blacklist checks)</span></span><input name="safeBrowsingKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste a new key to set or replace it"></label>
+              <p class="hint span-2" id="sb-state"></p>
+              <p class="hint span-2">Free key: Google Cloud Console → enable “Safe Browsing API” → Credentials → Create API key. The key stays on this server and is never shown again or printed in reports.</p>
+            </div>
+            <div class="form-actions">
+              <button type="submit" id="settings-save">Save settings</button>
+              <span class="hint" id="settings-status"></span>
+            </div>
+            <p class="error" id="settings-error" role="alert" hidden></p>
+          </form>
+          <aside>
+            <p class="eyebrow">Live preview</p>
+            <div class="cta-preview" id="cta-preview">
+              <div class="cp-brand" id="cp-brand"></div>
+              <h3 id="cp-head"></h3>
+              <p id="cp-msg"></p>
+              <div class="cp-actions" id="cp-actions"></div>
+            </div>
+            <p class="hint">This block closes every client report. Clients see the problems and evidence — the fix is your service.</p>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<dialog id="confirm" aria-labelledby="confirm-title">
+  <form method="dialog">
+    <h2 id="confirm-title">Are you sure?</h2>
+    <p id="confirm-text"></p>
+    <div class="form-actions end">
+      <button value="cancel" class="btn ghost" type="submit">Cancel</button>
+      <button value="ok" class="btn danger" type="submit" id="confirm-ok">Delete</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="outreach" class="wide-dialog" aria-labelledby="outreach-title">
+  <div class="dlg-head"><h2 id="outreach-title">Outreach email</h2><button type="button" class="icon-btn" id="outreach-close" aria-label="Close">✕</button></div>
+  <p class="hint">Built from the verified findings — no fix instructions included. Edit freely, then copy it into your email app.</p>
+  <label>Subject<input id="o-subject" type="text"></label>
+  <label>Email<textarea id="o-body" rows="14"></textarea></label>
+  <label>Follow-up (send 3–4 days later)<textarea id="o-follow" rows="7"></textarea></label>
+  <div class="form-actions">
+    <button type="button" class="btn ghost small" id="o-copy-subject">Copy subject</button>
+    <button type="button" class="btn ghost small" id="o-copy-body">Copy email</button>
+    <button type="button" class="btn ghost small" id="o-copy-follow">Copy follow-up</button>
+    <a class="btn small" id="o-mailto" href="#">Open in email app</a>
+  </div>
+</dialog>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+</body>
+</html>
