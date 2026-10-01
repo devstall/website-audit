@@ -45,7 +45,9 @@ export const AUTH_PASSWORD = process.env.WII_PASSWORD ?? '';
 /** Shortest password accepted before the server agrees to start with login enabled. */
 export const MIN_PASSWORD_LENGTH = 10;
 
-export const SERVER_PORT = Number(process.env.PORT ?? 4173);
+/** A port number, or a socket/pipe path (some hosts, e.g. Passenger or LiteSpeed, pass one in PORT). */
+const RAW_PORT = process.env.PORT || '4173';
+export const SERVER_PORT: number | string = /^\d+$/.test(RAW_PORT) ? Number(RAW_PORT) : RAW_PORT;
 /**
  * Bind address. Without a login it stays on loopback (local use). With a login it defaults to all
  * interfaces, so a hosting proxy (Hostinger, Render, a VPS behind Nginx) can reach it.

@@ -19,15 +19,18 @@ if (major < 22 || (major === 22 && minor < 13)) {
   console.warn(`[startup] Node ${process.versions.node} detected. Use Node 22.13+ (or 24) so reports are stored in SQLite.`);
 }
 
-const { register } = await import('tsx/esm/api');
-register();
-const { startServer } = await import('./src/server.ts');
-try {
-  await startServer();
-} catch (err) {
-  console.error(`[startup] ${err instanceof Error ? err.message : err}`);
-  process.exit(1);
-}
+// No top-level await: some hosts (Hostinger, cPanel/Passenger, LiteSpeed) load this file with require().
+import('tsx/esm/api')
+  .then(({ register }) => {
+    register();
+    return import('./src/server.ts');
+  })
+  .then(({ startServer }) => startServer())
+  .catch((err) => {
+    console.error('[startup] The app could not start:');
+    console.error(err instanceof Error ? (err.stack ?? err.message) : err);
+    process.exit(1);
+  });
 
 function parseEnv(text) {
   const out = {};

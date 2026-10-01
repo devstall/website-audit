@@ -585,26 +585,54 @@ export async function createApp(dataDir = DATA_DIR, opts: { apiKey?: string; use
 
 const LOOPBACK = new Set(['127.0.0.1', '::1', 'localhost']);
 
-/** Starts the HTTP server. Refuses to expose the dashboard on a network without a login. */
-export async function startServer() {
-  if (AUTH_PASSWORD && AUTH_PASSWORD.length < MIN_PASSWORD_LENGTH) {
-    throw new Error(`WII_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters.`);
-  }
-  if (!AUTH_PASSWORD && !LOOPBACK.has(SERVER_HOST)) {
-    throw new Error(`Refusing to listen on ${SERVER_HOST} without a login. Set WII_PASSWORD (and optionally WII_USER).`);
-  }
-  if (!AUTH_PASSWORD && process.env.NODE_ENV === 'production') {
-    console.warn('[security] NODE_ENV=production but WII_PASSWORD is not set: anyone who can reach this server can use the dashboard.');
-  }
-  const { app, store } = await createApp();
-  const server = app.listen(SERVER_PORT, SERVER_HOST, () => {
-    const shown = SERVER_HOST === '0.0.0.0' ? 'localhost' : SERVER_HOST;
-    console.log(`Website Independent Investigator running at http://${shown}:${SERVER_PORT} (storage: ${store.kind}, data: ${DATA_DIR}, login: ${AUTH_PASSWORD ? 'on' : 'off'})`);
+function listen(app: express.Express, onReady: (where: string) => void) {
+  const onSocket = typeof SERVER_PORT === 'string';
+  const where = onSocket ? String(SERVER_PORT) : `http://${SERVER_HOST === '0.0.0.0' ? 'localhost' : SERVER_HOST}:${SERVER_PORT}`;
+  const server = onSocket ? app.listen(SERVER_PORT, () => onReady(where)) : app.listen(SERVER_PORT as number, SERVER_HOST, () => onReady(where));
+  server.on('error', (err) => {
+    console.error(`[startup] Could not listen on ${SERVER_PORT}: ${err.message}`);
+    process.exit(1);
   });
   const shutdown = () => server.close(() => process.exit(0));
   process.once('SIGTERM', shutdown);
   process.once('SIGINT', shutdown);
   return server;
+}
+
+/** Why the dashboard must not start with the current settings, or null when it may. */
+function configProblem(): string | null {
+  if (AUTH_PASSWORD && AUTH_PASSWORD.length < MIN_PASSWORD_LENGTH) {
+    return `WII_PASSWORD is too short: use at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+  // A socket/pipe PORT means a hosting proxy forwards public traffic, so it needs a login too.
+  if (!AUTH_PASSWORD && (typeof SERVER_PORT === 'string' || !LOOPBACK.has(SERVER_HOST))) {
+    return 'WII_PASSWORD is not set. Add WII_PASSWORD (10+ characters) and optionally WII_USER in your hosting panel environment variables (or a .env file), then restart the app.';
+  }
+  return null;
+}
+
+/**
+ * Starts the HTTP server. With unsafe settings it serves only a setup message instead of the dashboard,
+ * so a hosting panel shows the reason rather than a bare 503.
+ */
+export async function startServer() {
+  const problem = configProblem();
+  if (problem) {
+    console.error(`[startup] ${problem}`);
+    const setup = express();
+    setup.disable('x-powered-by');
+    setup.use((_req, res) => {
+      res.status(503).type('text/plain').send(`Website Investigator is not configured yet.\n\n${problem}\n`);
+    });
+    return listen(setup, (where) => console.log(`Setup required; serving instructions at ${where}`));
+  }
+  if (!AUTH_PASSWORD && process.env.NODE_ENV === 'production') {
+    console.warn('[security] NODE_ENV=production but WII_PASSWORD is not set: anyone who can reach this server can use the dashboard.');
+  }
+  const { app, store } = await createApp();
+  return listen(app, (where) => {
+    console.log(`Website Independent Investigator running at ${where} (storage: ${store.kind}, data: ${DATA_DIR}, login: ${AUTH_PASSWORD ? 'on' : 'off'})`);
+  });
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
